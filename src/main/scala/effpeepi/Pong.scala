@@ -3,7 +3,8 @@ package effpeepi
 trait PongContext[RadiusType] {
   def paddleDim: Pong.Dimension
   def ballRadius: RadiusType
-  def canvas: Pong.Dimension
+  def canvas: Pong.Dimension // height, width
+  def paddleMargin: Double = 30.0
 }
 
 final case class GameState(score: (Int, Int),
@@ -24,7 +25,17 @@ object Pong {
     ballDirection = (1.0, 1.0)
   )
 
-  def mirror(vector: Vector2D): (Double, Double) = (vector._1, -vector._2)
+  trait Axis
+  case object X_AXIS extends Axis
+  case object Y_AXIS extends Axis
+
+  def mirror(vector: Vector2D, axis: Axis): (Double, Double) = {
+    val factor = axis match {
+      case Y_AXIS => 1
+      case X_AXIS => -1
+    }
+    (factor * vector._1,  factor * (-vector._2))
+  }
 
   /**
     * @param delta time elapsed since last apply
@@ -39,7 +50,7 @@ object Pong {
 
     val radius = radiusNumeric.toDouble(pongContext.ballRadius)
     val (ballX,ballY) = state.ballCenterPos
-    val (height,width) = pongContext.canvas
+    val (height, width) = pongContext.canvas
 
     val topOfBallY = ballY - radius
     val bottomOfBallY = ballY + radius
@@ -48,13 +59,24 @@ object Pong {
     val hitFloor = bottomOfBallY >= height
 
     val withDirectionUpdated = if (hitCeiling || hitFloor) {
-      state.copy(ballDirection = mirror(state.ballDirection))
+      state.copy(ballDirection = mirror(state.ballDirection, Y_AXIS))
     } else state
 
     // collision with paddles
 
+    val leftPaddle = Rectangle(topLeft = (pongContext.paddleMargin, state.leftPlayerPos), pongContext.paddleDim)
+    val rightPaddle = Rectangle(topLeft = (width - pongContext.paddleMargin, state.rightPlayerPos), pongContext.paddleDim)
+
+    val withPaddleCollison = if (leftPaddle.overlaps(state.ballCenterPos) || rightPaddle.overlaps(state.ballCenterPos)) {
+      withDirectionUpdated.copy(ballDirection = mirror(state.ballDirection, X_AXIS))
+    } else withDirectionUpdated
+
     // we need to advance the ball
-    withDirectionUpdated
+    withPaddleCollison
+  }
+
+  final case class Rectangle(topLeft: Vector2D, dimension: Dimension) {
+    def overlaps(point: Vector2D): Boolean = ???
   }
 
 }
