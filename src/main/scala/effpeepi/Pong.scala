@@ -1,11 +1,13 @@
 package effpeepi
 
 trait PongContext[RadiusType] {
-  def paddleDim: Math.Vector2D[Double]
+  def paddleDim: Math.Vector2D[Double] = Math.Vector2D(10, 50)
   def ballRadius: RadiusType
-  def canvas: Math.Vector2D[Double]
+  def canvas: Math.Vector2D[Double] = Math.Vector2D(640, 480)
   def paddleMargin: Double = 30.0
 }
+
+case class DefaultPongContext(ballRadius: Double) extends PongContext[Double]
 
 final case class GameState(score: (Int, Int),
                            leftPlayerPos: Double,
@@ -67,7 +69,7 @@ object Pong {
     val radiusNumeric = implicitly[Numeric[R]]
 
     val radius = radiusNumeric.toDouble(pongContext.ballRadius)
-    val (height, width) = (pongContext.canvas.x, pongContext.canvas.y)
+    val (width, height) = (pongContext.canvas.x, pongContext.canvas.y)
 
     val topOfBallY = state.ballCenterPos.y - radius
     val bottomOfBallY = state.ballCenterPos.y + radius
