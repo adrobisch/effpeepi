@@ -9,11 +9,16 @@ trait PongContext[RadiusType] {
 
 case class DefaultPongContext(ballRadius: Double) extends PongContext[Double]
 
-final case class GameState(score: (Int, Int),
-                           leftPlayerPos: Double,
-                           rightPlayerPos: Double,
-                           ballCenterPos: Math.Vector2D[Double],
-                           ballDirection: Math.Vector2D[Double])
+trait GameState
+
+
+final case class CurrentState(score: (Int, Int),
+                              leftPlayerPos: Double,
+                              rightPlayerPos: Double,
+                              ballCenterPos: Math.Vector2D[Double],
+                              ballDirection: Math.Vector2D[Double]) extends GameState
+
+case object GameOver extends GameState
 
 trait Axis
 case object X_AXIS extends Axis
@@ -62,7 +67,7 @@ object Math {
 
 object Pong {
 
-  val initalState = GameState(
+  val initalState = CurrentState(
     score = (0,0),
     leftPlayerPos = 0.0,
     rightPlayerPos = 0.0,
@@ -74,20 +79,20 @@ object Pong {
     * @param delta time elapsed since last apply
     */
   def applyTime[R : Numeric](delta: Double,
-                   state: GameState,
-                   pongContext: PongContext[R]): GameState = {
+                             state: CurrentState,
+                             pongContext: PongContext[R]): GameState = {
 
     val onCollisionState = updateStateOnCollision(state, pongContext, collision)
 
     endGame(state) match {
-      case 
+      case Some(Winner(LeftSide)) => { println("Player 1 won!"); GameOver }
+      case Some(Winner(RightSide)) => { println("Player 2 won!"); GameOver }
+      case _ => advanceBall(onCollisionState, delta)
     }
-
-    advanceBall(onCollisionState, delta)
   }
 
 
-  def endGame(state: GameState): Option[Winner] = {
+  def endGame(state: CurrentState): Option[Winner] = {
     state.score match {
       case (10.0, _) => Some(Winner(LeftSide))
       case (_, 10.0) => Some(Winner(RightSide))
@@ -95,7 +100,7 @@ object Pong {
     }
   }
 
-  def verticalWallCollision(radius: Double, height: Double, state: GameState) : Boolean = {
+  def verticalWallCollision(radius: Double, height: Double, state: CurrentState) : Boolean = {
     val topOfBallY = state.ballCenterPos.y - radius
     val bottomOfBallY = state.ballCenterPos.y + radius
 
@@ -105,7 +110,7 @@ object Pong {
     hitCeiling || hitFloor
   }
 
-  def horizontalWallCollision(radius: Double, width: Double, state: GameState) : (Boolean, Boolean) = {
+  def horizontalWallCollision(radius: Double, width: Double, state: CurrentState) : (Boolean, Boolean) = {
     val leftOfBallX = state.ballCenterPos.x - radius
     val rightOfBallX = state.ballCenterPos.x + radius
 
@@ -115,7 +120,7 @@ object Pong {
     (hitWallLeft, hitWallRight)
   }
 
-  def paddlesCollision[R: Numeric](state: GameState, pongContext: PongContext[R]) : Boolean = {
+  def paddlesCollision[R: Numeric](state: CurrentState, pongContext: PongContext[R]) : Boolean = {
     val width = pongContext.canvas.x
     val leftPaddle = Math.Rectangle(topLeft = Math.Vector2D(pongContext.paddleMargin, state.leftPlayerPos), pongContext.paddleDim)
     val rightPaddle = Math.Rectangle(topLeft = Math.Vector2D(width - pongContext.paddleMargin, state.rightPlayerPos), pongContext.paddleDim)
@@ -123,7 +128,7 @@ object Pong {
     leftPaddle.overlaps(state.ballCenterPos) || rightPaddle.overlaps(state.ballCenterPos)
   }
 
-  def collision[R: Numeric](state: GameState, pongContext: PongContext[R]) : Collision = {
+  def collision[R: Numeric](state: CurrentState, pongContext: PongContext[R]) : Collision = {
     val radiusNumeric = implicitly[Numeric[R]]
 
     val radius = radiusNumeric.toDouble(pongContext.ballRadius)
@@ -145,7 +150,7 @@ object Pong {
     return NoCollision
   }
 
-  def updateStateOnCollision[R: Numeric](state: GameState, pongContext: PongContext[R], collisionDetector: (GameState, PongContext[R]) => Collision) : GameState = {
+  def updateStateOnCollision[R: Numeric](state: CurrentState, pongContext: PongContext[R], collisionDetector: (CurrentState, PongContext[R]) => Collision) : CurrentState = {
     collisionDetector(state, pongContext) match {
       case NoCollision => state
       case PaddleCollision => state.copy(ballDirection = Math.mirror(state.ballDirection, X_AXIS))
@@ -154,7 +159,7 @@ object Pong {
     }
   }
 
-  def updateStateOnScore(state: GameState, collision: HorizontalCollision) : GameState = {
+  def updateStateOnScore(state: CurrentState, collision: HorizontalCollision) : CurrentState = {
     state.copy(
       score = if(collision.side == LeftSide) (state.score._1+1,state.score._2) else (state.score._1,state.score._2+1),
       ballCenterPos = Math.Vector2D(0.0, 0.0),
@@ -164,7 +169,7 @@ object Pong {
     )
   }
 
-  def advanceBall(state: GameState, delta: Double) : GameState = {
+  def advanceBall(state: CurrentState, delta: Double) : CurrentState = {
     state.copy(ballCenterPos = state.ballCenterPos + (state.ballDirection * delta))
   }
 }
