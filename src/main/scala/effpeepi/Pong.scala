@@ -29,6 +29,8 @@ case class HorizontalCollision(side: Side) extends Collision
 case object VerticalCollision extends Collision
 case object NoCollision extends Collision
 
+case class Winner(side: Side)
+
 object Math {
 
   final case class Vector2D[T](x: T, y: T) {
@@ -77,9 +79,21 @@ object Pong {
 
     val onCollisionState = updateStateOnCollision(state, pongContext, collision)
 
+    endGame(state) match {
+      case 
+    }
+
     advanceBall(onCollisionState, delta)
   }
 
+
+  def endGame(state: GameState): Option[Winner] = {
+    state.score match {
+      case (10.0, _) => Some(Winner(LeftSide))
+      case (_, 10.0) => Some(Winner(RightSide))
+      case _ => None
+    }
+  }
 
   def verticalWallCollision(radius: Double, height: Double, state: GameState) : Boolean = {
     val topOfBallY = state.ballCenterPos.y - radius
