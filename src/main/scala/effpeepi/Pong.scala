@@ -3,11 +3,11 @@ package effpeepi
 trait PongContext[RadiusType] {
   def paddleDim: Math.Vector2D[Double] = Math.Vector2D(10, 50)
   def ballRadius: RadiusType
-  def canvas: Math.Vector2D[Double] = Math.Vector2D(640, 480)
+  def canvas: Math.Vector2D[Double]
   def paddleMargin: Double = 30.0
 }
 
-case class DefaultPongContext(ballRadius: Double) extends PongContext[Double]
+case class DefaultPongContext(ballRadius: Double, canvas: Math.Vector2D[Double]) extends PongContext[Double]
 
 trait GameState
 
@@ -67,28 +67,30 @@ object Math {
 
 object Pong {
 
-  val initalState = CurrentState(
+  def initalState(pongContext: PongContext[_]) = CurrentState(
     score = (0,0),
-    leftPlayerPos = 0.0,
-    rightPlayerPos = 0.0,
-    ballCenterPos = Math.Vector2D(0.0, 0.0),
+    leftPlayerPos = pongContext.canvas.y / 2,
+    rightPlayerPos = pongContext.canvas.y / 2,
+    ballCenterPos = Math.Vector2D(pongContext.canvas.x / 2, pongContext.canvas.y / 2),
     ballDirection = Math.Vector2D(1.0, 1.0)
   )
 
   /**
     * @param delta time elapsed since last apply
     */
-  def applyTime[R : Numeric](delta: Double,
-                             state: CurrentState,
-                             pongContext: PongContext[R]): GameState = {
+  def applyTime[R](delta: Double,
+                   state: GameState,
+                   pongContext: PongContext[R])(implicit radiusType: Numeric[R]): GameState = state match {
+    case current: CurrentState =>
+      val onCollisionState = updateStateOnCollision[R](current, pongContext, collision)
+      println(onCollisionState)
 
-    val onCollisionState = updateStateOnCollision(state, pongContext, collision)
-
-    endGame(state) match {
-      case Some(Winner(LeftSide)) => { println("Player 1 won!"); GameOver }
-      case Some(Winner(RightSide)) => { println("Player 2 won!"); GameOver }
-      case _ => advanceBall(onCollisionState, delta)
-    }
+      endGame(current) match {
+        case Some(Winner(LeftSide)) => { println("Player 1 won!"); GameOver }
+        case Some(Winner(RightSide)) => { println("Player 2 won!"); GameOver }
+        case _ => advanceBall(onCollisionState, delta)
+      }
+    case GameOver => GameOver
   }
 
 
@@ -145,28 +147,25 @@ object Pong {
     horizontalWallCollision(radius, width, state) match {
       case (true, false) => return HorizontalCollision(LeftSide)
       case (false, true) => return HorizontalCollision(RightSide)
+      case _ => return NoCollision
     }
 
-    return NoCollision
+    NoCollision
   }
 
-  def updateStateOnCollision[R: Numeric](state: CurrentState, pongContext: PongContext[R], collisionDetector: (CurrentState, PongContext[R]) => Collision) : CurrentState = {
+  def updateStateOnCollision[R](state: CurrentState,
+                                pongContext: PongContext[R],
+                                collisionDetector: (CurrentState, PongContext[R]) => Collision)(implicit radiusType: Numeric[R]) : CurrentState = {
     collisionDetector(state, pongContext) match {
       case NoCollision => state
       case PaddleCollision => state.copy(ballDirection = Math.mirror(state.ballDirection, X_AXIS))
       case VerticalCollision => state.copy(ballDirection = Math.mirror(state.ballDirection, Y_AXIS))
-      case col: HorizontalCollision => updateStateOnScore(state, col)
+      case col: HorizontalCollision => updateStateOnScore(pongContext, state, col)
     }
   }
 
-  def updateStateOnScore(state: CurrentState, collision: HorizontalCollision) : CurrentState = {
-    state.copy(
-      score = if(collision.side == LeftSide) (state.score._1+1,state.score._2) else (state.score._1,state.score._2+1),
-      ballCenterPos = Math.Vector2D(0.0, 0.0),
-      ballDirection = Math.Vector2D(1.0, 1.0),
-      leftPlayerPos = 0.0,
-      rightPlayerPos = 0.0,
-    )
+  def updateStateOnScore(pongContext: PongContext[_], state: CurrentState, collision: HorizontalCollision) : CurrentState = {
+    initalState(pongContext).copy(score = if(collision.side == RightSide) (state.score._1+1,state.score._2) else (state.score._1,state.score._2+1))
   }
 
   def advanceBall(state: CurrentState, delta: Double) : CurrentState = {
