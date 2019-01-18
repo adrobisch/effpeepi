@@ -13,7 +13,7 @@ object PongApp {
     drawGame(canvas, gameState, pongContext)
   }
 
-  def drawGame(c: html.Canvas, gameState: GameState, pongContext: DefaultPongContext): Unit = {
+  def drawGame(c: html.Canvas, gameState: CurrentState, pongContext: DefaultPongContext): Unit = {
       type Ctx2D =
         dom.CanvasRenderingContext2D
       val ctx = c.getContext("2d")
