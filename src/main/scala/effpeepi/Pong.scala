@@ -83,7 +83,6 @@ object Pong {
                    pongContext: PongContext[R])(implicit radiusType: Numeric[R]): GameState = state match {
     case current: CurrentState =>
       val onCollisionState = updateStateOnCollision[R](current, pongContext, collision)
-      println(onCollisionState)
 
       endGame(current) match {
         case Some(Winner(LeftSide)) => { println("Player 1 won!"); GameOver }
